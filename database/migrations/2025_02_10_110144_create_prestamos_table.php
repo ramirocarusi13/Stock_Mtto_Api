@@ -15,6 +15,7 @@ return new class extends Migration {
             $table->string('usuario_prestamo')->nullable(); // 🔹 Asegúrate de que esta línea exista
             $table->dateTime('fecha_prestado');
             $table->boolean('devuelto')->default(false);
+            $table->dateTime('fecha_devolucion')->nullable(); // 🔹 Agregado para la devolución
             $table->timestamps();
         });
     }

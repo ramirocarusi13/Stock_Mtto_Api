@@ -15,14 +15,16 @@ class Prestamo extends Model
         'cantidad_prestada',
         'usuario_prestamo',
         'fecha_prestado',
-        'devuelto'
+        'devuelto',
+        'fecha_devolucion'
     ];
 
     public function inventario()
     {
         return $this->belongsTo(Inventario::class);
     }
-    public function user(){
-        return $this->hasOne(User::class,'id','usuario_prestamo');
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'usuario_prestamo', 'id');
     }
 }

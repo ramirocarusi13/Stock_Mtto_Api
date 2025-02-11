@@ -8,6 +8,7 @@ use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class InventarioController extends Controller
@@ -78,27 +79,38 @@ class InventarioController extends Controller
     public function devolverProducto($id)
     {
         $prestamo = Prestamo::find($id);
+
         if (!$prestamo || $prestamo->devuelto) {
             return response()->json(['error' => 'Préstamo no encontrado o ya devuelto'], 404);
         }
 
-        // Actualizar el préstamo como devuelto
-        $prestamo->update([
-            'devuelto' => true,
-            'fecha_devolucion' => now()->toDateString(),
-        ]);
+        // Verificar si la columna existe antes de actualizarla
+        if (Schema::hasColumn('prestamos', 'fecha_devolucion')) {
+            $prestamo->update([
+                'devuelto' => true,
+                'fecha_devolucion' => now(),
+            ]);
+        } else {
+            $prestamo->update([
+                'devuelto' => true,
+            ]);
+        }
 
         // Restaurar el stock del inventario
         $inventario = Inventario::find($prestamo->inventario_id);
-        $inventario->increment('en_stock', $prestamo->cantidad_prestada);
+        if ($inventario) {
+            $inventario->increment('en_stock', $prestamo->cantidad_prestada);
+        }
 
         return response()->json(['message' => 'Producto devuelto con éxito', 'prestamo' => $prestamo], 200);
     }
 
+
+
     // Obtener todos los préstamos
     public function obtenerPrestamos()
     {
-        $prestamos = Prestamo::with(['user','inventario'])->get();
+        $prestamos = Prestamo::with(['user', 'inventario'])->get();
         return response()->json(['data' => $prestamos], 200);
     }
 
