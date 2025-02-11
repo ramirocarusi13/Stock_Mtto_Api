@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\MovimientoController;
 use Illuminate\Http\Request;
@@ -49,6 +50,13 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     // Proveedores para el modal
     Route::get('/proveedores', [ProveedorController::class, 'getProveedores']);
     Route::post('/movimientos', [MovimientoController::class, 'store']);
+
+
+    
+
+    Route::get('/categorias', [CategoriaController::class, 'index']);
+    
+
 
 
     Route::get('/salidas', [SalidaController::class, 'index']);

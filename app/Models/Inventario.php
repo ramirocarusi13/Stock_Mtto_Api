@@ -16,6 +16,7 @@ class Inventario extends Model
         'codigo',
         'descripcion',
         'proveedor_id',
+        'categoria_id', // ✅ Asegurar que se pueda guardar
         'costo_proveedor_usd',
         'gastos_importacion_ars',
         'en_stock',
@@ -34,9 +35,9 @@ class Inventario extends Model
         'prestado',
         'fecha_prestado',
         'receptor_prestamo',
-        'usuario_prestamo',
-        'cantidad_prestada',
+        'cantidad_prestada'
     ];
+    
 
     protected $casts = [
         'prestado' => 'boolean',
@@ -50,6 +51,10 @@ class Inventario extends Model
     public function responsable(): BelongsTo
     {
         return $this->belongsTo(User::class, 'responsable_id');
+    }
+    public function categoria(): BelongsTo
+    {
+        return $this->belongsTo(Categoria::class, 'categoria_id');
     }
 
     /**

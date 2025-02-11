@@ -29,6 +29,7 @@ return new class extends Migration
             $table->date('fecha')->nullable(); // Fecha de entrada o salida
             $table->string('sector')->nullable(); // Sector asociado a la operación
             $table->enum('estado', ['pendiente', 'aprobado', 'rechazado'])->default('pendiente');
+            
 
             $table->enum('linea', [
                 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 

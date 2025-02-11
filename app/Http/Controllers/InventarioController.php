@@ -19,22 +19,13 @@ class InventarioController extends Controller
     public function index()
     {
         try {
-            $productos = Inventario::with("proveedor")->get();
-
-
-            return response()->json([
-                'success' => true,
-                'data' => $productos,
-                'message' => 'Productos obtenidos correctamente.'
-            ], 200);
+            $productos = Inventario::with(['proveedor', 'categoria'])->get(); // Se incluye la relación con la categoría
+            return response()->json(['data' => $productos], 200);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al obtener los productos del inventario.',
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Error al obtener los productos'], 500);
         }
     }
+
     // Registrar un préstamo
     public function prestarProducto(Request $request, $id)
     {
@@ -164,6 +155,15 @@ class InventarioController extends Controller
             return response()->json(['message' => 'Error interno del servidor'], 500);
         }
     }
+    public function getCategorias()
+    {
+        try {
+            $categorias = Inventario::select('categoria')->distinct()->get();
+            return response()->json($categorias, 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al obtener las categorías'], 500);
+        }
+    }
 
 
     public function aprobarProducto($id)
@@ -199,24 +199,31 @@ class InventarioController extends Controller
 
     public function store(Request $request)
     {
-        // Validar los datos
-        $validated = $request->validate([
-            'codigo' => 'required|string|max:255',
-            'descripcion' => 'required|string|max:255',
-            'proveedor_id' => 'required|exists:proveedores,id', // Validación para el proveedor
-            'en_stock' => 'required|integer|min:0',
-            'minimo' => 'required|integer|min:0',
-            'maximo' => 'required|integer|min:0',
-        ]);
+        try {
+            // Validación de los datos entrantes
+            $request->validate([
+                'codigo' => 'required|unique:inventarios,codigo',
+                'descripcion' => 'required|string',
+                'proveedor_id' => 'nullable|exists:proveedores,id',
+                'categoria_id' => 'required|exists:categorias,id', // ✅ Verifica que la categoría exista
+                'costo_proveedor_usd' => 'nullable|numeric',
+                'gastos_importacion_ars' => 'nullable|numeric',
+                'en_stock' => 'required|integer|min:0',
+                'minimo' => 'required|integer|min:0',
+                'punto_de_pedido' => 'nullable|integer|min:0',
+                'maximo' => 'required|integer|min:0',
+                'estado' => 'nullable|in:pendiente,aprobado,rechazado',
+            ]);
 
-        // Crear el inventario con la relación al proveedor
-        $producto = Inventario::create($validated);
+            // Crear el producto en el inventario
+            $producto = Inventario::create($request->all());
 
-        return response()->json([
-            'message' => 'Producto registrado correctamente',
-            'data' => $producto,
-        ]);
+            return response()->json(['message' => 'Producto agregado correctamente', 'data' => $producto], 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Error al agregar el producto', 'error' => $e->getMessage()], 500);
+        }
     }
+
     public function actualizarProducto(Request $request, $id)
     {
         // Log de depuración
