@@ -10,29 +10,30 @@ class Movimiento extends Model
     use HasFactory;
 
     protected $fillable = [
-        'inventario_id',  // Cambio de producto_id a inventario_id
-        'usuario_id', 
-        'gerente_id', 
-        'tipo', 
-        'cantidad', 
-        'fecha_movimiento', 
+        'codigo_producto',
+        'usuario_id',
+        'user_aprobacion_id',
+        'estado',
+        'cantidad',
+        'fecha_movimiento',
         'motivo'
     ];
-    
 
-    public function inventario()
+    // Relación con el producto en inventarios
+    public function producto()
     {
-        return $this->belongsTo(Inventario::class, 'producto_id'); // Ajuste en el nombre de la relación
+        return $this->belongsTo(Inventario::class, 'codigo_producto', 'codigo');
     }
 
+    // Relación con el usuario que creó el movimiento
     public function usuario()
     {
-        return $this->belongsTo(User::class, 'usuario_prestamo');
+        return $this->belongsTo(User::class, 'usuario_id');
     }
 
-
-    public function gerente()
+    // Relación con el usuario que aprobó o rechazó el movimiento
+    public function aprobador()
     {
-        return $this->belongsTo(User::class, 'gerente_id');
+        return $this->belongsTo(User::class, 'user_aprobacion_id');
     }
 }

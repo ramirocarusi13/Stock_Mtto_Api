@@ -15,7 +15,8 @@ return new class extends Migration
     {
         Schema::create('inventarios', function (Blueprint $table) {
             $table->id(); // ID único
-            $table->string('codigo')->unique(); // Código único para inventario
+            $table->string('codigo')->unique();
+
             $table->string('descripcion'); // Descripción del ítem
             $table->unsignedBigInteger('proveedor_id')->nullable(); // Relación con proveedores
             $table->decimal('costo_proveedor_usd', 10, 2)->nullable(); // Costo del proveedor en USD
@@ -29,12 +30,28 @@ return new class extends Migration
             $table->date('fecha')->nullable(); // Fecha de entrada o salida
             $table->string('sector')->nullable(); // Sector asociado a la operación
             $table->enum('estado', ['pendiente', 'aprobado', 'rechazado'])->default('pendiente');
-            
+
 
             $table->enum('linea', [
-                'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 
-                'M11', 'Mesa tendido', 'Dojo', 'Corte Electronico', 'S10', 
-                'S345', 'SS1', 'SS2', 'SS4'
+                'M1',
+                'M2',
+                'M3',
+                'M4',
+                'M5',
+                'M6',
+                'M7',
+                'M8',
+                'M9',
+                'M10',
+                'M11',
+                'Mesa tendido',
+                'Dojo',
+                'Corte Electronico',
+                'S10',
+                'S345',
+                'SS1',
+                'SS2',
+                'SS4'
             ])->nullable(); // Línea asociada
             $table->string('maquina')->nullable(); // Máquina asociada
             $table->unsignedBigInteger('responsable_id')->nullable(); // Responsable de la operación

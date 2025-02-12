@@ -13,13 +13,21 @@ return new class extends Migration
     {
         Schema::create('movimientos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('producto_id')->constrained('productos')->onDelete('cascade');
-            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('gerente_id')->nullable()->constrained('users')->onDelete('cascade'); // Gerente que aprueba
-            $table->enum('tipo', ['entrada', 'salida', 'ajuste', 'devolución']);
+
+            // Relación con inventarios basada en código
+            $table->string('codigo_producto');
+            $table->foreign('codigo_producto')->references('codigo')->on('inventarios')->onDelete('cascade');
+
+            // Relación con usuarios
+            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade'); // Usuario que creó el movimiento
+            $table->foreignId('user_aprobacion_id')->nullable()->constrained('users')->onDelete('set null'); // Usuario que aprobó/rechazó el movimiento
+
+            // Estado del movimiento
+            $table->enum('estado', ['aprobado', 'pendiente', 'rechazado']);
             $table->integer('cantidad');
             $table->dateTime('fecha_movimiento')->default(now());
-            $table->string('motivo')->nullable();
+            $table->enum('motivo', ['ingreso', 'egreso', 'prestamo', 'devolucion']);
+
             $table->timestamps();
         });
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inventario;
+use App\Models\Movimiento;
 use App\Models\Prestamo;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+
+use Illuminate\Support\Facades\DB;
 
 class InventarioController extends Controller
 {
@@ -109,22 +112,20 @@ class InventarioController extends Controller
     /**
      * Muestra los detalles de un producto específico.
      */
-    public function show($id)
+    public function show($codigo)
     {
-        $producto = Inventario::find($id);
+        // Buscar el producto por código
+        $producto = Inventario::where('codigo', $codigo)->firstOrFail();
 
-        if (!$producto) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Producto no encontrado.'
-            ], 404);
-        }
+        // Calcular el stock basado en movimientos
+        $stockCalculado = Movimiento::where('codigo_producto', $codigo)
+            ->where('estado', 'aprobado') // Solo movimientos aprobados afectan el stock
+            ->sum('cantidad');
 
         return response()->json([
-            'success' => true,
-            'data' => $producto,
-            'message' => 'Producto obtenido correctamente.'
-        ], 200);
+            'producto' => $producto,
+            'stock_real' => $stockCalculado, // Stock calculado desde movimientos
+        ]);
     }
     public function actualizarEstado(Request $request, $id)
     {
@@ -166,63 +167,93 @@ class InventarioController extends Controller
     }
 
 
-    public function aprobarProducto($id)
+    public function aprobarProducto($codigo)
     {
+        DB::beginTransaction();
         try {
-            $userLogueado = Auth::user();
+            // Buscar el producto
+            $producto = Inventario::where('codigo', $codigo)->firstOrFail();
 
-            // Verifica que el usuario sea gerente
-            if ($userLogueado->rol != 'gerente') {
-                return response()->json(['error' => true, 'message' => 'No tiene permisos para aprobar este producto'], 403);
+            // Verificar si ya está aprobado
+            if ($producto->estado === 'aprobado') {
+                return response()->json(['message' => 'El producto ya está aprobado'], 400);
             }
 
-            // Buscar el producto en el inventario
-            $producto = Inventario::findOrFail($id);
-
-            // Verifica que el producto esté en estado "pendiente"
-            if ($producto->estado !== 'pendiente') {
-                return response()->json(['error' => 'Solo se pueden aprobar productos en estado pendiente'], 400);
-            }
-
-            // Cambia el estado a "aprobado"
+            // Cambiar estado del producto a "aprobado"
             $producto->estado = 'aprobado';
             $producto->save();
 
-            return response()->json(['message' => 'Producto aprobado con éxito', 'producto' => $producto], 200);
+            // Actualizar todos los movimientos de ese producto a "aprobado"
+            Movimiento::where('codigo_producto', $codigo)
+                ->where('estado', 'pendiente')
+                ->update(['estado' => 'aprobado']);
+
+            DB::commit();
+
+            return response()->json(['message' => 'Producto y movimientos aprobados con éxito']);
         } catch (\Exception $e) {
-            Log::error('Error al aprobar el producto: ' . $e->getMessage());
-            return response()->json(['error' => 'Error al aprobar el producto'], 500);
+            DB::rollBack();
+            return response()->json(['error' => 'No se pudo aprobar el producto', 'detalle' => $e->getMessage()], 500);
         }
     }
+
 
 
 
     public function store(Request $request)
     {
+        $request->validate([
+            'codigo' => 'required|string|unique:inventarios,codigo',
+            'descripcion' => 'required|string',
+            'proveedor_id' => 'nullable|exists:proveedores,id',
+            'categoria_id' => 'nullable|exists:categorias,id',
+            'en_stock' => 'required|integer|min:0',
+            'minimo' => 'nullable|integer|min:0',
+            'maximo' => 'nullable|integer|min:0',
+        ]);
+
+        DB::beginTransaction();
         try {
-            // Validación de los datos entrantes
-            $request->validate([
-                'codigo' => 'required|unique:inventarios,codigo',
-                'descripcion' => 'required|string',
-                'proveedor_id' => 'nullable|exists:proveedores,id',
-                'categoria_id' => 'required|exists:categorias,id', // ✅ Verifica que la categoría exista
-                'costo_proveedor_usd' => 'nullable|numeric',
-                'gastos_importacion_ars' => 'nullable|numeric',
-                'en_stock' => 'required|integer|min:0',
-                'minimo' => 'required|integer|min:0',
-                'punto_de_pedido' => 'nullable|integer|min:0',
-                'maximo' => 'required|integer|min:0',
-                'estado' => 'nullable|in:pendiente,aprobado,rechazado',
+            // Crear el producto con estado "pendiente"
+            $producto = Inventario::create([
+                'codigo' => $request->codigo,
+                'descripcion' => $request->descripcion,
+                'proveedor_id' => $request->proveedor_id,
+                'categoria_id' => $request->categoria_id,
+                'en_stock' => $request->en_stock,
+                'minimo' => $request->minimo,
+                'maximo' => $request->maximo,
+                'entradas' => $request->en_stock,
+                'salidas' => 0,
+                'estado' => 'pendiente', // Estado inicial en pendiente
             ]);
 
-            // Crear el producto en el inventario
-            $producto = Inventario::create($request->all());
+            // Registrar el movimiento con estado "pendiente"
+            if ($request->en_stock > 0) {
+                Movimiento::create([
+                    'codigo_producto' => $request->codigo,
+                    'usuario_id' => Auth::id(),
+                    'cantidad' => $request->en_stock,
+                    'estado' => 'pendiente', // Estado pendiente hasta que el gerente lo apruebe
+                    'motivo' => 'ingreso',
+                ]);
+            }
 
-            return response()->json(['message' => 'Producto agregado correctamente', 'data' => $producto], 201);
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Producto agregado y movimiento registrado como pendiente',
+                'producto' => $producto,
+            ], 201);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al agregar el producto', 'error' => $e->getMessage()], 500);
+            DB::rollBack();
+            return response()->json([
+                'error' => 'No se pudo agregar el producto',
+                'detalle' => $e->getMessage(),
+            ], 500);
         }
     }
+
 
     public function actualizarProducto(Request $request, $id)
     {
