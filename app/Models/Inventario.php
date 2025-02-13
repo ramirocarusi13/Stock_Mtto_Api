@@ -40,6 +40,8 @@ class Inventario extends Model
         'prestado' => 'boolean',
     ];
 
+    protected $appends = ['stock_real']; // Se agrega para calcular stock dinámico
+
     /**
      * Relación con el modelo User (Responsable).
      */

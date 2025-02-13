@@ -19,6 +19,8 @@ class Movimiento extends Model
         'motivo'
     ];
 
+    protected $appends = ['usuario_nombre', 'aprobador_nombre'];
+
     // Relación con el producto en inventarios
     public function producto()
     {
@@ -35,5 +37,17 @@ class Movimiento extends Model
     public function aprobador()
     {
         return $this->belongsTo(User::class, 'user_aprobacion_id');
+    }
+
+    // Obtener el nombre del usuario que creó el movimiento
+    public function getUsuarioNombreAttribute()
+    {
+        return $this->usuario ? $this->usuario->name : 'Desconocido';
+    }
+
+    // Obtener el nombre del usuario que aprobó o rechazó el movimiento
+    public function getAprobadorNombreAttribute()
+    {
+        return $this->aprobador ? $this->aprobador->name : 'No aprobado';
     }
 }

@@ -47,6 +47,10 @@ class MovimientoController extends Controller
                 'motivo' => $request->motivo,
             ]);
 
+            // Actualizar en_stock sumando solo los movimientos aprobados
+            $producto->en_stock = $producto->movimientos()->where('estado', 'aprobado')->sum('cantidad');
+            $producto->save();
+
             DB::commit();
 
             return response()->json([
@@ -54,10 +58,177 @@ class MovimientoController extends Controller
                 'movimiento' => $movimiento,
                 'nuevo_stock' => $producto->en_stock,
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'No se pudo registrar el movimiento', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+    public function aprobarMovimientosPorCodigo($codigo_producto)
+    {
+        DB::beginTransaction();
+        try {
+            // Buscar los movimientos pendientes de ese producto
+            $movimientosPendientes = Movimiento::where('codigo_producto', $codigo_producto)
+                ->where('estado', 'pendiente')
+                ->get();
+
+            if ($movimientosPendientes->isEmpty()) {
+                return response()->json(['message' => 'No hay movimientos pendientes para este producto'], 400);
+            }
+
+            // Aprobar todos los movimientos pendientes del producto
+            foreach ($movimientosPendientes as $movimiento) {
+                $movimiento->estado = 'aprobado';
+                $movimiento->save();
+            }
+
+            // Buscar el producto en inventarios
+            $producto = Inventario::where('codigo', $codigo_producto)->firstOrFail();
+
+            // Si el producto aún está pendiente en inventarios, lo aprobamos con el primer movimiento
+            if ($producto->estado === 'pendiente') {
+                $producto->estado = 'aprobado';
+            }
+
+            // Usar el método existente en `Inventario.php` para actualizar el stock
+            $producto->en_stock = $producto->getStockRealAttribute();
+            $producto->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Movimientos aprobados y stock actualizado correctamente',
+                'nuevo_stock' => $producto->en_stock
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'No se pudieron aprobar los movimientos', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+    public function rechazarMovimientosPorCodigo($codigo_producto)
+    {
+        DB::beginTransaction();
+        try {
+            // Buscar los movimientos pendientes de ese producto
+            $movimientosPendientes = Movimiento::where('codigo_producto', $codigo_producto)
+                ->where('estado', 'pendiente')
+                ->get();
+
+            if ($movimientosPendientes->isEmpty()) {
+                return response()->json(['message' => 'No hay movimientos pendientes para este producto'], 400);
+            }
+
+            // Rechazar todos los movimientos pendientes del producto
+            foreach ($movimientosPendientes as $movimiento) {
+                $movimiento->estado = 'rechazado';
+                $movimiento->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Movimientos rechazados correctamente',
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'No se pudieron rechazar los movimientos', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+
+
+
+
+    public function getAllMovimientos(Request $request)
+    {
+        try {
+            // Permitir filtrar por estado si se envía en la query string (por ejemplo: ?estado=pendiente)
+            $estado = $request->query('estado');
+
+            $query = Movimiento::query();
+
+            if ($estado) {
+                $query->where('estado', $estado);
+            }
+
+            // Obtener los movimientos con información del usuario y producto relacionado
+            $movimientos = $query->with(['usuario', 'producto'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'message' => 'Lista de movimientos obtenida con éxito',
+                'movimientos' => $movimientos,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'No se pudieron obtener los movimientos',
+                'detalle' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getMovimientosPorProducto($codigo_producto)
+    {
+        try {
+            // Obtener los movimientos del producto por su código
+            $movimientos = Movimiento::where('codigo_producto', $codigo_producto)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            // Calcular la cantidad total de movimientos aprobados
+            $cantidadTotal = $movimientos
+                ->where('estado', 'aprobado')
+                ->sum('cantidad');
+
+            return response()->json([
+                'codigo_producto' => $codigo_producto,
+                'cantidad_total' => $cantidadTotal,
+                'movimientos' => $movimientos,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'No se pudieron obtener los movimientos',
+                'detalle' => $e->getMessage()
+            ], 500);
+        }
+    }
+    public function crearMovimientoDesdeEdicion(Request $request, $id)
+    {
+        $request->validate([
+            'cantidad' => 'required|integer|min:1',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            // Buscar el movimiento original
+            $movimientoOriginal = Movimiento::findOrFail($id);
+
+            // Buscar el producto relacionado
+            $producto = Inventario::where('codigo', $movimientoOriginal->codigo_producto)->firstOrFail();
+
+            // Verificar si el movimiento original ya está aprobado (para evitar ediciones directas)
+            if ($movimientoOriginal->estado === 'aprobado') {
+                return response()->json(['error' => 'No se puede modificar un movimiento aprobado, se generará uno nuevo'], 400);
+            }
+
+            // Crear un nuevo movimiento con la cantidad nueva
+            $nuevoMovimiento = Movimiento::create([
+                'codigo_producto' => $movimientoOriginal->codigo_producto,
+                'usuario_id' => Auth::id(), // Usuario que genera la edición
+                'cantidad' => $request->cantidad,
+                'estado' => 'pendiente', // Nuevo movimiento en estado pendiente
+                'motivo' => $movimientoOriginal->motivo, // Mismo motivo del movimiento original
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Nuevo movimiento creado con éxito, pendiente de aprobación',
+                'movimiento' => $nuevoMovimiento,
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'No se pudo generar el nuevo movimiento', 'detalle' => $e->getMessage()], 500);
         }
     }
 }
