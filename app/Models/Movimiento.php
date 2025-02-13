@@ -1,5 +1,7 @@
 <?php
 
+
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,7 +21,7 @@ class Movimiento extends Model
         'motivo'
     ];
 
-    protected $appends = ['usuario_nombre', 'aprobador_nombre'];
+    protected $appends = ['usuario_nombre']; // Agregar el nombre del usuario en la respuesta
 
     // Relación con el producto en inventarios
     public function producto()
@@ -33,21 +35,9 @@ class Movimiento extends Model
         return $this->belongsTo(User::class, 'usuario_id');
     }
 
-    // Relación con el usuario que aprobó o rechazó el movimiento
-    public function aprobador()
-    {
-        return $this->belongsTo(User::class, 'user_aprobacion_id');
-    }
-
     // Obtener el nombre del usuario que creó el movimiento
     public function getUsuarioNombreAttribute()
     {
         return $this->usuario ? $this->usuario->name : 'Desconocido';
-    }
-
-    // Obtener el nombre del usuario que aprobó o rechazó el movimiento
-    public function getAprobadorNombreAttribute()
-    {
-        return $this->aprobador ? $this->aprobador->name : 'No aprobado';
     }
 }

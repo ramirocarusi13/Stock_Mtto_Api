@@ -14,7 +14,7 @@ class MovimientoController extends Controller
     {
         $request->validate([
             'codigo_producto' => 'required|exists:inventarios,codigo',
-            'cantidad' => 'required|integer|min:1',
+            'cantidad' => 'required|integer',
             'motivo' => 'required|in:ingreso,egreso,prestamo,devolucion',
         ]);
 
@@ -172,6 +172,7 @@ class MovimientoController extends Controller
         try {
             // Obtener los movimientos del producto por su código
             $movimientos = Movimiento::where('codigo_producto', $codigo_producto)
+                ->with('usuario')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
