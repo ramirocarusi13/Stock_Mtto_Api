@@ -21,12 +21,16 @@ return new class extends Migration
             // Relación con usuarios
             $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade'); // Usuario que creó el movimiento
             $table->foreignId('user_aprobacion_id')->nullable()->constrained('users')->onDelete('set null'); // Usuario que aprobó/rechazó el movimiento
-
+            $table->string('receptor_prestamo')->nullable();
             // Estado del movimiento
             $table->enum('estado', ['aprobado', 'pendiente', 'rechazado']);
             $table->integer('cantidad');
             $table->dateTime('fecha_movimiento')->default(now());
             $table->enum('motivo', ['ingreso', 'egreso', 'prestamo', 'devolucion']);
+            $table->string('observacion_salida')->nullable();
+
+
+
 
             $table->timestamps();
         });

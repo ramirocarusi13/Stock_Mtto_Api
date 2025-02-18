@@ -18,7 +18,9 @@ class Movimiento extends Model
         'estado',
         'cantidad',
         'fecha_movimiento',
-        'motivo'
+        'motivo',
+        'receptor_prestamo',
+        'observacion_salida'
     ];
 
     protected $appends = ['usuario_nombre']; // Agregar el nombre del usuario en la respuesta
@@ -28,6 +30,11 @@ class Movimiento extends Model
     {
         return $this->belongsTo(Inventario::class, 'codigo_producto', 'codigo');
     }
+    public function inventario()
+    {
+        return $this->belongsTo(Inventario::class, 'codigo_producto', 'codigo');
+    }
+
 
     // Relación con el usuario que creó el movimiento
     public function usuario()

@@ -236,6 +236,8 @@ class InventarioController extends Controller
                     'cantidad' => $request->en_stock,
                     'estado' => 'pendiente', // Estado pendiente hasta que el gerente lo apruebe
                     'motivo' => 'ingreso',
+                    'observacion_salida' => 'nullable|string',
+
                 ]);
             }
 

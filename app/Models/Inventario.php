@@ -17,6 +17,7 @@ class Inventario extends Model
         'codigo',
         'descripcion',
         'proveedor_id',
+        'categoria_id',
         'costo_proveedor_usd',
         'gastos_importacion_ars',
         'minimo',

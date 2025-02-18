@@ -13,10 +13,14 @@ class MovimientoController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'codigo_producto' => 'required|exists:inventarios,codigo',
-            'cantidad' => 'required|integer',
-            'motivo' => 'required|in:ingreso,egreso,prestamo,devolucion',
+            'codigo_producto' => 'required|string',
+            'cantidad' => 'required|numeric',
+            'motivo' => 'required|string|in:ingreso,egreso,préstamo,devolución',
+            'estado' => 'required|string|in:pendiente,aprobado,rechazado',
+            'receptor_prestamo' => 'nullable|string',
+            'observacion_salida' => 'nullable|string',
         ]);
+
 
         DB::beginTransaction();
         try {
@@ -43,8 +47,10 @@ class MovimientoController extends Controller
                 'codigo_producto' => $request->codigo_producto,
                 'usuario_id' => Auth::id(),
                 'cantidad' => $request->cantidad,
-                'estado' => 'pendiente',
                 'motivo' => $request->motivo,
+                'estado' => $request->estado,
+                'receptor_prestamo' => $request->receptor_prestamo, 
+                'observacion_salida' => $request->observacion_salida,
             ]);
 
             // Actualizar en_stock sumando solo los movimientos aprobados
@@ -63,6 +69,87 @@ class MovimientoController extends Controller
             return response()->json(['error' => 'No se pudo registrar el movimiento', 'detalle' => $e->getMessage()], 500);
         }
     }
+    public function devolverPrestamo(Request $request, $id)
+    {
+        $movimiento = Movimiento::findOrFail($id);
+    
+        if ($movimiento->motivo !== 'prestamo') {
+            return response()->json(['error' => 'Solo se pueden devolver préstamos'], 400);
+        }
+    
+        if ($movimiento->estado === 'devuelto') {
+            return response()->json(['error' => 'Este préstamo ya ha sido devuelto'], 400);
+        }
+    
+        DB::beginTransaction();
+        try {
+            // Marcar el préstamo original como "devuelto" y cambiar el motivo a "devolución"
+            $movimiento->estado = 'aprobado';
+            $movimiento->motivo = 'devolucion'; // Cambiar el motivo para que no aparezca en la tabla de préstamos
+            $movimiento->save();
+    
+            // Buscar el producto en inventario
+            $producto = Inventario::where('codigo', $movimiento->codigo_producto)->firstOrFail();
+            $cantidad_devuelta = abs($movimiento->cantidad);
+    
+            // Restaurar stock en inventario
+            $producto->en_stock += $cantidad_devuelta;
+            $producto->save();
+    
+            // Crear un nuevo movimiento de ingreso con los nombres de columnas correctos
+            $nuevoMovimiento = Movimiento::create([
+                'codigo_producto' => $movimiento->codigo_producto,
+                'usuario_id' => $movimiento->usuario_id, // Mismo usuario que hizo el préstamo
+                'user_aprobacion_id' => Auth::id(), // Usuario que aprueba la devolución
+                'receptor_prestamo' => $movimiento->receptor_prestamo, // Se mantiene el receptor original
+                'estado' => 'aprobado', // Estado ya aprobado
+                'cantidad' => $cantidad_devuelta, // Positiva para reflejar el ingreso
+                'fecha_movimiento' => now(), // Fecha de devolución
+                'motivo' => 'ingreso', // Ingreso porque se devuelve stock
+            ]);
+    
+            DB::commit();
+    
+            return response()->json([
+                'message' => 'Préstamo devuelto y stock restaurado',
+                'nuevo_movimiento' => $nuevoMovimiento,
+                'nuevo_stock' => $producto->en_stock
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Error al devolver el producto', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+    
+
+
+
+    public function getPrestamos()
+{
+    try {
+        // Obtener los movimientos de préstamo y devolución
+        $prestamos = Movimiento::whereIn('motivo', ['prestamo', 'devolucion'])
+            ->with(['inventario', 'usuario'])
+            ->orderByRaw("CASE WHEN motivo = 'prestamo' THEN 0 ELSE 1 END") // Poner los préstamos arriba
+            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización (devolución)
+            ->paginate(10); // Limitar a 10 registros por página
+
+        // Agregar la fecha de devolución basada en updated_at solo para los devueltos
+        $prestamos->getCollection()->transform(function ($prestamo) {
+            if ($prestamo->motivo === 'devolucion') {
+                $prestamo->fecha_devolucion = $prestamo->updated_at;
+            } else {
+                $prestamo->fecha_devolucion = null;
+            }
+            return $prestamo;
+        });
+
+        return response()->json($prestamos, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Error al obtener los préstamos', 'detalle' => $e->getMessage()], 500);
+    }
+}
+
     public function aprobarMovimientosPorCodigo($codigo_producto)
     {
         DB::beginTransaction();
