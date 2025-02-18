@@ -36,7 +36,7 @@ class Inventario extends Model
         'receptor_prestamo',
         'cantidad_prestada',
     ];
-    
+
     protected $casts = [
         'prestado' => 'boolean',
     ];
@@ -58,6 +58,7 @@ class Inventario extends Model
     {
         return $this->belongsTo(Categoria::class, 'categoria_id');
     }
+
 
     /**
      * Relación con el modelo Proveedor.
@@ -108,6 +109,11 @@ class Inventario extends Model
     {
         return $query->where('estado', $estado);
     }
+    public function producto()
+    {
+        return $this->belongsTo(Inventario::class, 'codigo_producto', 'codigo');
+    }
+
 
     /**
      * Scope para filtrar inventarios que están prestados.

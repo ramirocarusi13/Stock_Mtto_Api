@@ -77,5 +77,7 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     Route::post('/salidas', [SalidaController::class, 'registrarSalida']);
 
     Route::get('/reportes', [ReporteController::class, 'generarReporte']);
-
+    Route::get('/reportes/productos-mas-movidos', [ReporteController::class, 'productosMasMovidos']);
+    Route::get('/reportes/motivos-frecuentes', [ReporteController::class, 'motivosMasFrecuentes']);
+    Route::get('/reportes/stock', [ReporteController::class, 'reporteStock']);
 });
