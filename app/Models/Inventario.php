@@ -19,6 +19,7 @@ class Inventario extends Model
         'proveedor_id',
         'categoria_id',
         'costo_proveedor_usd',
+        'costo_por_unidad',
         'gastos_importacion_ars',
         'minimo',
         'punto_de_pedido',
@@ -58,6 +59,7 @@ class Inventario extends Model
     {
         return $this->belongsTo(Categoria::class, 'categoria_id');
     }
+
 
 
     /**

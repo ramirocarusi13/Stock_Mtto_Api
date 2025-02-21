@@ -28,6 +28,59 @@ class InventarioController extends Controller
             return response()->json(['message' => 'Error al obtener los productos'], 500);
         }
     }
+    public function getProductoCompleto($id)
+{
+    try {
+        // Buscar el producto con sus relaciones (proveedor y categoría)
+        $producto = Inventario::with(['proveedor', 'categoria'])->find($id);
+
+        if (!$producto) {
+            return response()->json(['message' => 'Producto no encontrado'], 404);
+        }
+
+        // Calcular el stock real basado en los movimientos aprobados
+        $stock_real = Movimiento::where('codigo_producto', $producto->codigo)
+            ->where('estado', 'aprobado')
+            ->sum('cantidad');
+
+        // Obtener salidas agrupadas por fecha
+        $salidasPorFecha = Movimiento::where('codigo_producto', $producto->codigo)
+            ->where('motivo', 'salida') // Solo contar salidas
+            ->where('estado', 'aprobado')
+            ->select(DB::raw('DATE(created_at) as fecha'), DB::raw('SUM(cantidad) as cantidad'))
+            ->groupBy('fecha')
+            ->orderBy('fecha', 'desc')
+            ->get();
+
+        return response()->json([
+            'producto' => [
+                'id' => $producto->id,
+                'codigo' => $producto->codigo,
+                'descripcion' => $producto->descripcion,
+                'categoria' => $producto->categoria ? $producto->categoria->nombre : 'Sin categoría',
+                'proveedor' => $producto->proveedor ? $producto->proveedor->nombre : 'Sin proveedor',
+                'precio' => $producto->precio,
+                'costo' => $producto->costo_proveedor_usd,
+                'gastos_importacion' => $producto->gastos_importacion_ars,
+                'stock_real' => $stock_real,
+                'minimo' => $producto->minimo,
+                'maximo' => $producto->maximo,
+                'estado' => $producto->estado,
+                'creado_en' => $producto->created_at->format('Y-m-d H:i:s'),
+                'actualizado_en' => $producto->updated_at->format('Y-m-d H:i:s'),
+                'salidas_por_fecha' => $salidasPorFecha // Agregamos historial de salidas
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al obtener el producto',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
 
     // Registrar un préstamo
     public function prestarProducto(Request $request, $id)
@@ -107,6 +160,19 @@ class InventarioController extends Controller
         $prestamos = Prestamo::with(['user', 'inventario'])->get();
         return response()->json(['data' => $prestamos], 200);
     }
+    public function getProductosPorCategoria(Request $request)
+    {
+        $categoriaId = $request->query('categoria_id');
+
+        if (!$categoriaId) {
+            return response()->json(['error' => 'Debe proporcionar una categoría'], 400);
+        }
+
+        $productos = Inventario::where('categoria_id', $categoriaId)->get();
+
+        return response()->json($productos);
+    }
+
 
 
     /**
@@ -271,8 +337,8 @@ class InventarioController extends Controller
                 'minimo' => 'required|integer|min:0',
                 'punto_de_pedido' => 'nullable|integer|min:0',
                 'maximo' => 'required|integer|min:0',
-                'costo_proveedor_usd' => 'nullable|numeric|min:0',
-                'gastos_importacion_ars' => 'nullable|numeric|min:0',
+                'costo_por_unidad' => 'nullable|numeric|min:0',
+                
             ]);
 
             $producto = Inventario::find($id);

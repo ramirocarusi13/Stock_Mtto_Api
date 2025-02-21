@@ -120,6 +120,29 @@ class MovimientoController extends Controller
             return response()->json(['error' => 'Error al devolver el producto', 'detalle' => $e->getMessage()], 500);
         }
     }
+    public function getEgresosConProductos()
+{
+    try {
+        $egresos = Movimiento::where('motivo', 'egreso')
+            ->where('estado', 'aprobado')
+            ->with('producto.categoria') // Relación con el modelo Inventario
+             // Relación con el modelo Inventario
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'message' => 'Egresos obtenidos con éxito',
+            'egresos' => $egresos,
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => 'No se pudieron obtener los egresos',
+            'detalle' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
     
 
 

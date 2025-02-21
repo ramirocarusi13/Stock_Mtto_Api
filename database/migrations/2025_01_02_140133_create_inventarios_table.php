@@ -20,7 +20,8 @@ return new class extends Migration
             $table->string('descripcion'); // Descripción del ítem
             $table->unsignedBigInteger('proveedor_id')->nullable(); // Relación con proveedores
             $table->decimal('costo_proveedor_usd', 10, 2)->nullable(); // Costo del proveedor en USD
-            $table->decimal('gastos_importacion_ars', 10, 2)->nullable(); // Gastos de importación en ARS
+            $table->decimal('gastos_importacion_ars', 10, 2)->nullable();
+            $table->decimal('costo_por_unidad', 10, 2)->nullable();
             $table->integer('minimo')->nullable(); // Cantidad mínima permitida
             $table->integer('punto_de_pedido')->nullable(); // Punto de pedido
             $table->integer('maximo')->nullable(); // Cantidad máxima permitida

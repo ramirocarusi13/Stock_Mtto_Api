@@ -64,6 +64,8 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
 
 
     Route::get('/prestamos', [MovimientoController::class, 'getPrestamos']);
+    Route::get('/productos', [InventarioController::class, 'getProductosPorCategoria']);
+
 
 
 
@@ -75,9 +77,12 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
 
     Route::get('/salidas', [SalidaController::class, 'index']);
     Route::post('/salidas', [SalidaController::class, 'registrarSalida']);
+    Route::get('/egresos-con-productos', [MovimientoController::class, 'getEgresosConProductos']);
 
     Route::get('/reportes', [ReporteController::class, 'generarReporte']);
     Route::get('/reportes/productos-mas-movidos', [ReporteController::class, 'productosMasMovidos']);
     Route::get('/reportes/motivos-frecuentes', [ReporteController::class, 'motivosMasFrecuentes']);
     Route::get('/reportes/stock', [ReporteController::class, 'reporteStock']);
+    Route::get('movimientos/egresos/{codigo_producto}', [MovimientoController::class, 'getEgresosPorProducto']);
+
 });
