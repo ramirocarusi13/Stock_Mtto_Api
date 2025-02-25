@@ -15,7 +15,7 @@ class MovimientoController extends Controller
         $request->validate([
             'codigo_producto' => 'required|string',
             'cantidad' => 'required|numeric',
-            'motivo' => 'required|string|in:ingreso,egreso,préstamo,devolución',
+            'motivo' => 'required|string|in:ingreso,egreso,prestamo,devolución',
             'estado' => 'required|string|in:pendiente,aprobado,rechazado',
             'receptor_prestamo' => 'nullable|string',
             'observacion_salida' => 'nullable|string',
