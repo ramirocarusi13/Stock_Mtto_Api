@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Inventario extends Model
 {
@@ -58,6 +59,12 @@ class Inventario extends Model
     public function categoria(): BelongsTo
     {
         return $this->belongsTo(Categoria::class, 'categoria_id');
+    }
+
+    public function stock(): HasMany
+    {
+        return $this->hasMany(Movimiento::class, 'codigo_producto', 'codigo')
+            ->where('estado', 'aprobado');
     }
 
 

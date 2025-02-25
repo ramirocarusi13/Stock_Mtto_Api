@@ -22,63 +22,80 @@ class InventarioController extends Controller
     public function index()
     {
         try {
-            $productos = Inventario::with(['proveedor', 'categoria'])->get(); // Se incluye la relación con la categoría
+            $productos = Inventario::with(['stock','proveedor', 'categoria'])->get(); // Se incluye la relación con la categoría
             return response()->json(['data' => $productos], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error al obtener los productos'], 500);
         }
     }
+
+    // public function show($codigo)
+    // {
+    //     // Buscar el producto por código
+    //     $producto = Inventario::where('codigo', $codigo)->firstOrFail();
+
+    //     // Calcular el stock basado en movimientos
+    //     $stockCalculado = Movimiento::where('codigo_producto', $codigo)
+    //         ->where('estado', 'aprobado') // Solo movimientos aprobados afectan el stock
+    //         ->sum('cantidad');
+
+    //     return response()->json([
+    //         'producto' => $producto,
+    //         'stock_real' => $stockCalculado, // Stock calculado desde movimientos
+    //     ]);
+    // }
+
+
     public function getProductoCompleto($id)
-{
-    try {
-        // Buscar el producto con sus relaciones (proveedor y categoría)
-        $producto = Inventario::with(['proveedor', 'categoria'])->find($id);
+    {
+        try {
+            // Buscar el producto con sus relaciones (proveedor y categoría)
+            $producto = Inventario::with(['proveedor', 'categoria'])->find($id);
 
-        if (!$producto) {
-            return response()->json(['message' => 'Producto no encontrado'], 404);
+            if (!$producto) {
+                return response()->json(['message' => 'Producto no encontrado'], 404);
+            }
+
+            // Calcular el stock real basado en los movimientos aprobados
+            $stock_real = Movimiento::where('codigo_producto', $producto->codigo)
+                ->where('estado', 'aprobado')
+                ->sum('cantidad');
+
+            // Obtener salidas agrupadas por fecha
+            $salidasPorFecha = Movimiento::where('codigo_producto', $producto->codigo)
+                ->where('motivo', 'salida') // Solo contar salidas
+                ->where('estado', 'aprobado')
+                ->select(DB::raw('DATE(created_at) as fecha'), DB::raw('SUM(cantidad) as cantidad'))
+                ->groupBy('fecha')
+                ->orderBy('fecha', 'desc')
+                ->get();
+
+            return response()->json([
+                'producto' => [
+                    'id' => $producto->id,
+                    'codigo' => $producto->codigo,
+                    'descripcion' => $producto->descripcion,
+                    'categoria' => $producto->categoria ? $producto->categoria->nombre : 'Sin categoría',
+                    'proveedor' => $producto->proveedor ? $producto->proveedor->nombre : 'Sin proveedor',
+                    'precio' => $producto->precio,
+                    'costo' => $producto->costo_proveedor_usd,
+                    'gastos_importacion' => $producto->gastos_importacion_ars,
+                    'stock_real' => $stock_real,
+                    'minimo' => $producto->minimo,
+                    'maximo' => $producto->maximo,
+                    'estado' => $producto->estado,
+                    'creado_en' => $producto->created_at->format('Y-m-d H:i:s'),
+                    'actualizado_en' => $producto->updated_at->format('Y-m-d H:i:s'),
+                    'salidas_por_fecha' => $salidasPorFecha // Agregamos historial de salidas
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener el producto',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        // Calcular el stock real basado en los movimientos aprobados
-        $stock_real = Movimiento::where('codigo_producto', $producto->codigo)
-            ->where('estado', 'aprobado')
-            ->sum('cantidad');
-
-        // Obtener salidas agrupadas por fecha
-        $salidasPorFecha = Movimiento::where('codigo_producto', $producto->codigo)
-            ->where('motivo', 'salida') // Solo contar salidas
-            ->where('estado', 'aprobado')
-            ->select(DB::raw('DATE(created_at) as fecha'), DB::raw('SUM(cantidad) as cantidad'))
-            ->groupBy('fecha')
-            ->orderBy('fecha', 'desc')
-            ->get();
-
-        return response()->json([
-            'producto' => [
-                'id' => $producto->id,
-                'codigo' => $producto->codigo,
-                'descripcion' => $producto->descripcion,
-                'categoria' => $producto->categoria ? $producto->categoria->nombre : 'Sin categoría',
-                'proveedor' => $producto->proveedor ? $producto->proveedor->nombre : 'Sin proveedor',
-                'precio' => $producto->precio,
-                'costo' => $producto->costo_proveedor_usd,
-                'gastos_importacion' => $producto->gastos_importacion_ars,
-                'stock_real' => $stock_real,
-                'minimo' => $producto->minimo,
-                'maximo' => $producto->maximo,
-                'estado' => $producto->estado,
-                'creado_en' => $producto->created_at->format('Y-m-d H:i:s'),
-                'actualizado_en' => $producto->updated_at->format('Y-m-d H:i:s'),
-                'salidas_por_fecha' => $salidasPorFecha // Agregamos historial de salidas
-            ]
-        ], 200);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'message' => 'Error al obtener el producto',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 
 
 
@@ -262,6 +279,54 @@ class InventarioController extends Controller
             return response()->json(['error' => 'No se pudo aprobar el producto', 'detalle' => $e->getMessage()], 500);
         }
     }
+    public function aprobarProductoConLimites(Request $request, $codigo)
+    {
+        // Validar que se reciban los campos minimo y maximo
+        $validator = Validator::make($request->all(), [
+            'minimo' => 'required|integer|min:0',
+            'maximo' => 'required|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Buscar el producto por código
+            $producto = Inventario::where('codigo', $codigo)->firstOrFail();
+
+            // Verificar si ya está aprobado
+            if ($producto->estado === 'aprobado') {
+                return response()->json(['message' => 'El producto ya está aprobado'], 400);
+            }
+
+            // Actualizar el estado y los límites del producto
+            $producto->estado = 'aprobado';
+            $producto->minimo = $request->minimo;
+            $producto->maximo = $request->maximo;
+            $producto->save();
+
+            // Actualizar todos los movimientos pendientes a "aprobado"
+            Movimiento::where('codigo_producto', $codigo)
+                ->where('estado', 'pendiente')
+                ->update(['estado' => 'aprobado']);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Producto y movimientos aprobados con éxito, y límites actualizados',
+                'producto' => $producto
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'error' => 'No se pudo aprobar el producto',
+                'detalle' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 
 
@@ -338,7 +403,7 @@ class InventarioController extends Controller
                 'punto_de_pedido' => 'nullable|integer|min:0',
                 'maximo' => 'required|integer|min:0',
                 'costo_por_unidad' => 'nullable|numeric|min:0',
-                
+
             ]);
 
             $producto = Inventario::find($id);

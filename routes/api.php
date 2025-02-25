@@ -39,6 +39,7 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     Route::post('/inventario', [InventarioController::class, 'store']); // Nueva ruta para crear un producto
     Route::put('/inventario/{id}/prestar', [InventarioController::class, 'prestarProducto']);
     Route::put('/prestamo/{id}/devolver', [MovimientoController::class, 'devolverPrestamo']);
+    Route::put('inventario/aprobar-con-limites/{codigo}', [InventarioController::class, 'aprobarProductoConLimites']);
 
     Route::get('/prestamos', [InventarioController::class, 'obtenerPrestamos']);
 
