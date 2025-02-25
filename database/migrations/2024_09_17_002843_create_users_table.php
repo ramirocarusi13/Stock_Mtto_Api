@@ -19,7 +19,7 @@ class CreateUsersTable extends Migration
             $table->string('user')->unique(); // Campo "user" en lugar de "email"
             $table->timestamp('user_verified_at')->nullable(); // Opcional: verificación del campo "user"
             $table->string('password');
-            $table->enum('rol', ['gerente', 'team_member','group_leader']);
+            $table->enum('rol', ['gerente', 'coordinador',,'analista','team_member','group_leader']);
             $table->enum('turno', ['central', 'amarillo', 'azul', 'blanco']);
             $table->rememberToken();
             $table->timestamps();
