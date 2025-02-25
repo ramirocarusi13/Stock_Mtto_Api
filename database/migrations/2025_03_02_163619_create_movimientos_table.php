@@ -19,8 +19,8 @@ return new class extends Migration
             $table->foreign('codigo_producto')->references('codigo')->on('inventarios')->onDelete('cascade');
 
             // Relación con usuarios
-            $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade'); // Usuario que creó el movimiento
-            $table->foreignId('user_aprobacion_id')->nullable()->constrained('users')->onDelete('set null'); // Usuario que aprobó/rechazó el movimiento
+            $table->foreignId('usuario_id')->constrained('users'); // Usuario que creó el movimiento
+            $table->foreignId('user_aprobacion_id')->nullable()->constrained('users'); // Usuario que aprobó/rechazó el movimiento
             $table->string('receptor_prestamo')->nullable();
             // Estado del movimiento
             $table->enum('estado', ['aprobado', 'pendiente', 'rechazado']);
