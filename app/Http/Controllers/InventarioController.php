@@ -22,21 +22,18 @@ class InventarioController extends Controller
     public function index(Request $request)
     {
         try {
-            $productos = Inventario::select('id', 'codigo', 'descripcion', 'proveedor_id', 'categoria_id')
-                ->with([
-                    'proveedor:id,nombre',
-                    'categoria:id,nombre'
-                ])
-                ->withSum(['movimientos as stock_real' => function ($q) {
-                    $q->where('estado', 'aprobado');
-                }], 'cantidad')
-                ->get();
+            $perPage = $request->input('per_page', 50);  // cantidad por página
+            $productos = Inventario::with(['proveedor:id,nombre', 'categoria:id,nombre'])
+                ->select('id', 'codigo', 'descripcion', 'proveedor_id', 'categoria_id', 'estado') // solo campos necesarios
+                ->where('estado', 'aprobado')
+                ->paginate($perPage);
 
-            return response()->json(['data' => $productos], 200);
+            return response()->json($productos);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al obtener los productos: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error al obtener productos: ' . $e->getMessage()], 500);
         }
     }
+
 
     // public function show($codigo)
     // {
