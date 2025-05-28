@@ -56,9 +56,9 @@ class Inventario extends Model
     /**
      * Relación con Categoría.
      */
-    public function categoria(): HasOne
+    public function categoria(): BelongsTo
     {
-        return $this->hasOne(Categoria::class, 'id', 'categoria_id');
+        return $this->belongsTo(Categoria::class, 'categoria_id');
     }
     // public function categoria(): BelongsTo
     // {
@@ -77,10 +77,11 @@ class Inventario extends Model
      * Relación con el modelo Proveedor.
      */
 
-     public function proveedor(): HasOne
+    public function proveedor(): BelongsTo
     {
-        return $this->hasOne(Proveedor::class, 'id', 'proveedor_id');
+        return $this->belongsTo(Proveedor::class, 'proveedor_id');
     }
+
     // public function proveedor(): BelongsTo
     // {
     //     return $this->belongsTo(Proveedor::class, 'proveedor_id');
