@@ -56,10 +56,14 @@ class Inventario extends Model
     /**
      * Relación con Categoría.
      */
-    public function categoria(): BelongsTo
+    public function categoria(): HasOne
     {
-        return $this->belongsTo(Categoria::class, 'categoria_id');
+        return $this->hasOne(Categoria::class, 'id', 'categoria_id');
     }
+    // public function categoria(): BelongsTo
+    // {
+    //     return $this->belongsTo(Categoria::class, 'categoria_id');
+    // }
 
     public function stock(): HasMany
     {
@@ -72,10 +76,15 @@ class Inventario extends Model
     /**
      * Relación con el modelo Proveedor.
      */
-    public function proveedor(): BelongsTo
+
+     public function proveedor(): HasOne
     {
-        return $this->belongsTo(Proveedor::class, 'proveedor_id');
+        return $this->hasOne(Proveedor::class, 'id', 'proveedor_id');
     }
+    // public function proveedor(): BelongsTo
+    // {
+    //     return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    // }
 
     /**
      * Relación con los movimientos del producto.

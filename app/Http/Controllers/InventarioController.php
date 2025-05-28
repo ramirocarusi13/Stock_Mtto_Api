@@ -19,13 +19,22 @@ class InventarioController extends Controller
     /**
      * Muestra una lista de todos los productos en el inventario.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $productos = Inventario::with(['stock','proveedor', 'categoria'])->get(); // Se incluye la relación con la categoría
+            $productos = Inventario::select('id', 'codigo', 'descripcion', 'proveedor_id', 'categoria_id')
+                ->with([
+                    'proveedor:id,nombre',
+                    'categoria:id,nombre'
+                ])
+                ->withSum(['movimientos as stock_real' => function ($q) {
+                    $q->where('estado', 'aprobado');
+                }], 'cantidad')
+                ->get();
+
             return response()->json(['data' => $productos], 200);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al obtener los productos'], 500);
+            return response()->json(['message' => 'Error al obtener los productos: ' . $e->getMessage()], 500);
         }
     }
 
