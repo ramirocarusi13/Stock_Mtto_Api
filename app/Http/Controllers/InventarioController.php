@@ -19,15 +19,62 @@ class InventarioController extends Controller
     /**
      * Muestra una lista de todos los productos en el inventario.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $productos = Inventario::with(['stock','proveedor', 'categoria'])->get(); // Se incluye la relación con la categoría
+            $search = $request->input('search');
+
+            $query = Inventario::with(['stock', 'proveedor', 'categoria']);
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('codigo', 'like', "%{$search}%")
+                        ->orWhere('descripcion', 'like', "%{$search}%")
+                        ->orWhereHas('proveedor', function ($q2) use ($search) {
+                            $q2->where('nombre', 'like', "%{$search}%");
+                        });
+                });
+            }
+
+            $productos = $query->take(100)->get();
+
             return response()->json(['data' => $productos], 200);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al obtener los productos'], 500);
+            return response()->json(['message' => 'Error al obtener los productos: ' . $e->getMessage()], 500);
         }
     }
+    public function productosPuntoDePedido()
+    {
+        try {
+            $productos = Inventario::with([
+                'proveedor',
+                'movimientos' => function ($q) {
+                    $q->where('estado', 'aprobado');
+                }
+            ])->where('estado', 'aprobado')->get();
+
+            $filtrados = $productos->filter(function ($producto) {
+                $stock = (int) $producto->stock_real;
+                $punto = (int) ($producto->punto_de_pedido ?? 0);
+
+                Log::debug('Evaluando punto de pedido', [
+                    'codigo' => $producto->codigo,
+                    'stock_real' => $stock,
+                    'punto_de_pedido' => $punto,
+                    'cumple' => $stock <= $punto
+                ]);
+
+                return $stock <= $punto;
+            })->values();
+
+            return response()->json(['data' => $filtrados], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener productos punto de pedido: ' . $e->getMessage());
+            return response()->json(['message' => 'Error al obtener productos en punto de pedido'], 500);
+        }
+    }
+
+
 
     // public function show($codigo)
     // {
@@ -197,19 +244,22 @@ class InventarioController extends Controller
      */
     public function show($codigo)
     {
-        // Buscar el producto por código
-        $producto = Inventario::where('codigo', $codigo)->firstOrFail();
+        $producto = Inventario::where('codigo', $codigo)->first();
 
-        // Calcular el stock basado en movimientos
+        if (!$producto) {
+            return response()->json(['message' => 'Producto no encontrado'], 404);
+        }
+
         $stockCalculado = Movimiento::where('codigo_producto', $codigo)
-            ->where('estado', 'aprobado') // Solo movimientos aprobados afectan el stock
+            ->where('estado', 'aprobado')
             ->sum('cantidad');
 
         return response()->json([
             'producto' => $producto,
-            'stock_real' => $stockCalculado, // Stock calculado desde movimientos
+            'stock_real' => $stockCalculado,
         ]);
     }
+
     public function actualizarEstado(Request $request, $id)
     {
         Log::info('Datos recibidos en la actualización de estado:', $request->all());
@@ -255,7 +305,11 @@ class InventarioController extends Controller
         DB::beginTransaction();
         try {
             // Buscar el producto
-            $producto = Inventario::where('codigo', $codigo)->firstOrFail();
+            $producto = Inventario::where('codigo', $codigo)->first();
+
+            if (!$producto) {
+                return response()->json(['message' => 'Producto no encontrado'], 404);
+            }
 
             // Verificar si ya está aprobado
             if ($producto->estado === 'aprobado') {
@@ -276,12 +330,15 @@ class InventarioController extends Controller
             return response()->json(['message' => 'Producto y movimientos aprobados con éxito']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'No se pudo aprobar el producto', 'detalle' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'No se pudo aprobar el producto',
+                'detalle' => $e->getMessage()
+            ], 500);
         }
     }
+
     public function aprobarProductoConLimites(Request $request, $codigo)
     {
-        // Validar que se reciban los campos minimo y maximo
         $validator = Validator::make($request->all(), [
             'minimo' => 'required|integer|min:0',
             'maximo' => 'required|integer|min:0',
@@ -294,9 +351,12 @@ class InventarioController extends Controller
         DB::beginTransaction();
         try {
             // Buscar el producto por código
-            $producto = Inventario::where('codigo', $codigo)->firstOrFail();
+            $producto = Inventario::where('codigo', $codigo)->first();
 
-            // Verificar si ya está aprobado
+            if (!$producto) {
+                return response()->json(['message' => 'Producto no encontrado'], 404);
+            }
+
             if ($producto->estado === 'aprobado') {
                 return response()->json(['message' => 'El producto ya está aprobado'], 400);
             }
@@ -307,7 +367,7 @@ class InventarioController extends Controller
             $producto->maximo = $request->maximo;
             $producto->save();
 
-            // Actualizar todos los movimientos pendientes a "aprobado"
+            // Aprobar los movimientos pendientes
             Movimiento::where('codigo_producto', $codigo)
                 ->where('estado', 'pendiente')
                 ->update(['estado' => 'aprobado']);
@@ -331,6 +391,9 @@ class InventarioController extends Controller
 
 
 
+
+
+
     public function store(Request $request)
     {
         $request->validate([
@@ -341,7 +404,9 @@ class InventarioController extends Controller
             'en_stock' => 'required|integer|min:0',
             'minimo' => 'nullable|integer|min:0',
             'maximo' => 'nullable|integer|min:0',
+            'punto_de_pedido' => 'nullable|integer|min:0', // ✅ agregado
         ]);
+
 
         DB::beginTransaction();
         try {
@@ -354,9 +419,11 @@ class InventarioController extends Controller
                 'en_stock' => $request->en_stock,
                 'minimo' => $request->minimo,
                 'maximo' => $request->maximo,
+                'punto_de_pedido' => $request->punto_de_pedido, // ✅ agregado
                 'entradas' => $request->en_stock,
                 'salidas' => 0,
-                'estado' => 'pendiente', // Estado inicial en pendiente
+                'estado' => 'pendiente',
+
             ]);
 
             // Registrar el movimiento con estado "pendiente"
@@ -388,6 +455,38 @@ class InventarioController extends Controller
     }
 
 
+
+
+
+    public function productosCriticos()
+    {
+        try {
+            // Obtener productos aprobados con relaciones necesarias
+            $productos = Inventario::with(['proveedor', 'stock'])
+                ->where('estado', 'aprobado')
+                ->get();
+
+            // Filtrar los que están por debajo o igual al mínimo
+            $productosCriticos = $productos->filter(function ($producto) {
+                $stockActual = $producto->stock->sum(function ($mov) {
+                    return (float) $mov->cantidad;
+                });
+
+                $minimo = (int) ($producto->minimo ?? 0);
+                return $stockActual <= $minimo;
+            })->values(); // Reindexar resultados
+
+            return response()->json([
+                'data' => $productosCriticos,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error al obtener productos críticos: ' . $e->getMessage());
+            return response()->json(['message' => 'Error al obtener productos críticos'], 500);
+        }
+    }
+
+
+
     public function actualizarProducto(Request $request, $id)
     {
         // Log de depuración
@@ -395,16 +494,16 @@ class InventarioController extends Controller
 
         try {
             $validatedData = $request->validate([
-                'codigo' => 'required|string|max:255',
-                'descripcion' => 'required|string|max:255',
-                'proveedor_id' => 'required|integer|exists:proveedores,id',
-                'en_stock' => 'required|integer|min:0',
-                'minimo' => 'required|integer|min:0',
-                'punto_de_pedido' => 'nullable|integer|min:0',
-                'maximo' => 'required|integer|min:0',
-                'costo_por_unidad' => 'nullable|numeric|min:0',
-
+                'codigo' => 'sometimes|string|max:255',
+                'descripcion' => 'sometimes|string|max:255',
+                'proveedor_id' => 'sometimes|integer|exists:proveedores,id',
+                'en_stock' => 'sometimes|integer|min:0',
+                'minimo' => 'sometimes|integer|min:0',
+                'punto_de_pedido' => 'sometimes|integer|min:0|nullable',
+                'maximo' => 'sometimes|integer|min:0',
+                'costo_por_unidad' => 'sometimes|numeric|min:0|nullable',
             ]);
+
 
             $producto = Inventario::find($id);
             if (!$producto) {

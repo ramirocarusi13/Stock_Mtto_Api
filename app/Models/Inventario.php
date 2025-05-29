@@ -91,9 +91,9 @@ class Inventario extends Model
      * Relación con los movimientos del producto.
      */
     public function movimientos(): HasMany
-    {
-        return $this->hasMany(Movimiento::class, 'codigo_producto', 'codigo');
-    }
+{
+    return $this->hasMany(Movimiento::class, 'codigo_producto', 'codigo');
+}
 
     /**
      * Calcula el stock real sumando los movimientos aprobados.

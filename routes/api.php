@@ -40,6 +40,9 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     Route::put('/inventario/{id}/prestar', [InventarioController::class, 'prestarProducto']);
     Route::put('/prestamo/{id}/devolver', [MovimientoController::class, 'devolverPrestamo']);
     Route::put('inventario/aprobar-con-limites/{codigo}', [InventarioController::class, 'aprobarProductoConLimites']);
+    Route::get('inventario/criticos', [InventarioController::class, 'productosCriticos']);
+    Route::get('inventario/punto-de-pedido', [InventarioController::class, 'productosPuntoDePedido']);
+
 
     Route::get('/prestamos', [InventarioController::class, 'obtenerPrestamos']);
 
@@ -85,5 +88,4 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     Route::get('/reportes/motivos-frecuentes', [ReporteController::class, 'motivosMasFrecuentes']);
     Route::get('/reportes/stock', [ReporteController::class, 'reporteStock']);
     Route::get('movimientos/egresos/{codigo_producto}', [MovimientoController::class, 'getEgresosPorProducto']);
-
 });
