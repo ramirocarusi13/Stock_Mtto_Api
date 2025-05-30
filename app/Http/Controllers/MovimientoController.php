@@ -49,7 +49,7 @@ class MovimientoController extends Controller
                 'cantidad' => $request->cantidad,
                 'motivo' => $request->motivo,
                 'estado' => $request->estado,
-                'receptor_prestamo' => $request->receptor_prestamo, 
+                'receptor_prestamo' => $request->receptor_prestamo,
                 'observacion_salida' => $request->observacion_salida,
             ]);
 
@@ -72,30 +72,30 @@ class MovimientoController extends Controller
     public function devolverPrestamo(Request $request, $id)
     {
         $movimiento = Movimiento::findOrFail($id);
-    
+
         if ($movimiento->motivo !== 'prestamo') {
             return response()->json(['error' => 'Solo se pueden devolver préstamos'], 400);
         }
-    
+
         if ($movimiento->estado === 'devuelto') {
             return response()->json(['error' => 'Este préstamo ya ha sido devuelto'], 400);
         }
-    
+
         DB::beginTransaction();
         try {
             // Marcar el préstamo original como "devuelto" y cambiar el motivo a "devolución"
             $movimiento->estado = 'aprobado';
             $movimiento->motivo = 'devolucion'; // Cambiar el motivo para que no aparezca en la tabla de préstamos
             $movimiento->save();
-    
+
             // Buscar el producto en inventario
             $producto = Inventario::where('codigo', $movimiento->codigo_producto)->firstOrFail();
             $cantidad_devuelta = abs($movimiento->cantidad);
-    
+
             // Restaurar stock en inventario
             $producto->en_stock += $cantidad_devuelta;
             $producto->save();
-    
+
             // Crear un nuevo movimiento de ingreso con los nombres de columnas correctos
             $nuevoMovimiento = Movimiento::create([
                 'codigo_producto' => $movimiento->codigo_producto,
@@ -107,9 +107,9 @@ class MovimientoController extends Controller
                 'fecha_movimiento' => now(), // Fecha de devolución
                 'motivo' => 'ingreso', // Ingreso porque se devuelve stock
             ]);
-    
+
             DB::commit();
-    
+
             return response()->json([
                 'message' => 'Préstamo devuelto y stock restaurado',
                 'nuevo_movimiento' => $nuevoMovimiento,
@@ -121,57 +121,57 @@ class MovimientoController extends Controller
         }
     }
     public function getEgresosConProductos()
-{
-    try {
-        $egresos = Movimiento::where('motivo', 'egreso')
-            ->where('estado', 'aprobado')
-            ->with('producto.categoria') // Relación con el modelo Inventario
-             // Relación con el modelo Inventario
-            ->orderBy('created_at', 'desc')
-            ->get();
+    {
+        try {
+            $egresos = Movimiento::where('motivo', 'egreso')
+                ->where('estado', 'aprobado')
+                ->with('producto.categoria') // Relación con el modelo Inventario
+                // Relación con el modelo Inventario
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        return response()->json([
-            'message' => 'Egresos obtenidos con éxito',
-            'egresos' => $egresos,
-        ], 200);
-    } catch (\Exception $e) {
-        return response()->json([
-            'error' => 'No se pudieron obtener los egresos',
-            'detalle' => $e->getMessage()
-        ], 500);
+            return response()->json([
+                'message' => 'Egresos obtenidos con éxito',
+                'egresos' => $egresos,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'No se pudieron obtener los egresos',
+                'detalle' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
 
-    
+
 
 
 
     public function getPrestamos()
-{
-    try {
-        // Obtener los movimientos de préstamo y devolución
-        $prestamos = Movimiento::whereIn('motivo', ['prestamo', 'devolucion'])
-            ->with(['inventario', 'usuario'])
-            ->orderByRaw("CASE WHEN motivo = 'prestamo' THEN 0 ELSE 1 END") // Poner los préstamos arriba
-            ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización (devolución)
-            ->paginate(10); // Limitar a 10 registros por página
+    {
+        try {
+            // Obtener los movimientos de préstamo y devolución
+            $prestamos = Movimiento::whereIn('motivo', ['prestamo', 'devolucion'])
+                ->with(['inventario', 'usuario'])
+                ->orderByRaw("CASE WHEN motivo = 'prestamo' THEN 0 ELSE 1 END") // Poner los préstamos arriba
+                ->orderBy('updated_at', 'desc') // Ordenar por fecha de actualización (devolución)
+                ->paginate(10); // Limitar a 10 registros por página
 
-        // Agregar la fecha de devolución basada en updated_at solo para los devueltos
-        $prestamos->getCollection()->transform(function ($prestamo) {
-            if ($prestamo->motivo === 'devolucion') {
-                $prestamo->fecha_devolucion = $prestamo->updated_at;
-            } else {
-                $prestamo->fecha_devolucion = null;
-            }
-            return $prestamo;
-        });
+            // Agregar la fecha de devolución basada en updated_at solo para los devueltos
+            $prestamos->getCollection()->transform(function ($prestamo) {
+                if ($prestamo->motivo === 'devolucion') {
+                    $prestamo->fecha_devolucion = $prestamo->updated_at;
+                } else {
+                    $prestamo->fecha_devolucion = null;
+                }
+                return $prestamo;
+            });
 
-        return response()->json($prestamos, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => 'Error al obtener los préstamos', 'detalle' => $e->getMessage()], 500);
+            return response()->json($prestamos, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error al obtener los préstamos', 'detalle' => $e->getMessage()], 500);
+        }
     }
-}
 
     public function aprobarMovimientosPorCodigo($codigo_producto)
     {
@@ -217,33 +217,17 @@ class MovimientoController extends Controller
     }
     public function rechazarMovimientosPorCodigo($codigo_producto)
     {
-        DB::beginTransaction();
         try {
-            // Buscar los movimientos pendientes de ese producto
-            $movimientosPendientes = Movimiento::where('codigo_producto', $codigo_producto)
+            Movimiento::where('codigo_producto', $codigo_producto)
                 ->where('estado', 'pendiente')
-                ->get();
+                ->update(['estado' => 'rechazado']);
 
-            if ($movimientosPendientes->isEmpty()) {
-                return response()->json(['message' => 'No hay movimientos pendientes para este producto'], 400);
-            }
-
-            // Rechazar todos los movimientos pendientes del producto
-            foreach ($movimientosPendientes as $movimiento) {
-                $movimiento->estado = 'rechazado';
-                $movimiento->save();
-            }
-
-            DB::commit();
-
-            return response()->json([
-                'message' => 'Movimientos rechazados correctamente',
-            ]);
+            return response()->json(['message' => 'Movimientos rechazados con éxito']);
         } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'No se pudieron rechazar los movimientos', 'detalle' => $e->getMessage()], 500);
+            return response()->json(['error' => 'Error al rechazar movimientos', 'detalle' => $e->getMessage()], 500);
         }
     }
+
 
 
 
