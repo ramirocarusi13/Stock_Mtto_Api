@@ -246,7 +246,7 @@ class MovimientoController extends Controller
                 });
             }
 
-            $movimientos = $query->take(50)->get(); // Aquí usamos el take correcto
+            $movimientos = $query->take(50)->get(); 
             Log::alert($movimientos);
 
             return response()->json([
