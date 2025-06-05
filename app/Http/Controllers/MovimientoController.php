@@ -235,6 +235,7 @@ class MovimientoController extends Controller
 
             $query = Movimiento::with(['usuario', 'producto'])
                 ->where('motivo', 'egreso')
+                ->where('estado', 'aprobado')
                 ->orderBy('created_at', 'desc');
 
             if ($search) {
@@ -246,8 +247,10 @@ class MovimientoController extends Controller
                 });
             }
 
-            $movimientos = $query->take(50)->get(); 
-            Log::alert($movimientos);
+            $movimientos = $query->take(50)->get();
+
+            // 🔒 Filtro para evitar errores si no hay relación con producto
+            $movimientos = $movimientos->filter(fn($m) => $m->producto !== null)->values();
 
             return response()->json([
                 'message' => 'Salidas obtenidas con éxito',
