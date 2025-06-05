@@ -35,16 +35,17 @@ Route::group(['middleware' => ['cors', 'json.response']], function () {
 Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function () {
     // Inventario
     Route::get('/inventario', [InventarioController::class, 'index']);
-    Route::get('/inventario/{codigo}', [InventarioController::class, 'show']);
     Route::post('/inventario', [InventarioController::class, 'store']); // Nueva ruta para crear un producto
-    Route::put('/inventario/{id}/prestar', [InventarioController::class, 'prestarProducto']);
-    Route::put('/prestamo/{id}/devolver', [MovimientoController::class, 'devolverPrestamo']);
     Route::put('inventario/aprobar-con-limites/{codigo}', [InventarioController::class, 'aprobarProductoConLimites']);
     Route::get('inventario/criticos', [InventarioController::class, 'productosCriticos']);
     Route::get('inventario/punto-de-pedido', [InventarioController::class, 'productosPuntoDePedido']);
-
-
     Route::get('/prestamos', [InventarioController::class, 'obtenerPrestamos']);
+    Route::get('inventario/lista-minima', [InventarioController::class, 'listarCodigosYNombres']);
+
+    Route::get('/inventario/{codigo}', [InventarioController::class, 'show']);
+    Route::put('/inventario/{id}/prestar', [InventarioController::class, 'prestarProducto']);
+    Route::put('/prestamo/{id}/devolver', [MovimientoController::class, 'devolverPrestamo']);
+
 
     Route::post('/inventario/{id}/estado', [InventarioController::class, 'actualizarEstado']);
     Route::put('/inventario/aprobar/{codigo}', [InventarioController::class, 'aprobarProducto']);
@@ -59,33 +60,35 @@ Route::group(['middleware' => ['auth:api', 'cors', 'json.response']], function (
     // Proveedores para el modal
     Route::get('/proveedores', [ProveedorController::class, 'getProveedores']);
     Route::post('/movimientos', [MovimientoController::class, 'store']);
-    Route::get('/movimientos/{codigo_producto}', [MovimientoController::class, 'getMovimientosPorProducto']);
     Route::put('/movimientos/{id}', [MovimientoController::class, 'actualizarMovimiento']);
     Route::post('/movimientos/{id}/editar', [MovimientoController::class, 'crearMovimientoDesdeEdicion']);
     Route::get('/movimientos', [MovimientoController::class, 'getAllMovimientos']);
     Route::put('/movimientos/aprobar/{codigo_producto}', [MovimientoController::class, 'aprobarMovimientosPorCodigo']);
     Route::put('/movimientos/rechazar/{codigo_producto}', [MovimientoController::class, 'rechazarMovimientosPorCodigo']);
-
-
+    
+    
     Route::get('/prestamos', [MovimientoController::class, 'getPrestamos']);
     Route::get('/productos', [InventarioController::class, 'getProductosPorCategoria']);
 
 
-
-
-
+    
+    
+    
     Route::get('/categorias', [CategoriaController::class, 'index']);
-
-
-
-
+    
+    
+    
+    
     Route::get('/salidas', [SalidaController::class, 'index']);
     Route::post('/salidas', [SalidaController::class, 'registrarSalida']);
     Route::get('/egresos-con-productos', [MovimientoController::class, 'getEgresosConProductos']);
-
+    
     Route::get('/reportes', [ReporteController::class, 'generarReporte']);
     Route::get('/reportes/productos-mas-movidos', [ReporteController::class, 'productosMasMovidos']);
     Route::get('/reportes/motivos-frecuentes', [ReporteController::class, 'motivosMasFrecuentes']);
     Route::get('/reportes/stock', [ReporteController::class, 'reporteStock']);
-    Route::get('movimientos/egresos/{codigo_producto}', [MovimientoController::class, 'getEgresosPorProducto']);
+    Route::get('/movimientos/egresos', [MovimientoController::class, 'getEgresosFiltrados']);
+    Route::get('/movimientos/egresos/{codigo_producto}', [MovimientoController::class, 'getEgresosPorProducto']);
+    
+    Route::get('/movimientos/{codigo_producto}', [MovimientoController::class, 'getMovimientosPorProducto']);
 });

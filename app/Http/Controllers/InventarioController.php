@@ -521,4 +521,20 @@ class InventarioController extends Controller
             return response()->json(['message' => 'Error interno del servidor'], 500);
         }
     }
+    public function listarCodigosYNombres()
+    {
+        try {
+            $productos = Inventario::select('id', 'codigo', 'descripcion')
+                ->where('estado', 'aprobado')
+                ->orderBy('descripcion')
+                ->get();
+
+            return response()->json(['data' => $productos], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al obtener productos básicos',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

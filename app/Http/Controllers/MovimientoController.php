@@ -7,6 +7,7 @@ use App\Models\Movimiento;
 use App\Models\Inventario;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MovimientoController extends Controller
 {
@@ -227,6 +228,39 @@ class MovimientoController extends Controller
             return response()->json(['error' => 'Error al rechazar movimientos', 'detalle' => $e->getMessage()], 500);
         }
     }
+    public function getEgresosFiltrados(Request $request)
+    {
+        try {
+            $search = $request->query('search');
+
+            $query = Movimiento::with(['usuario', 'producto'])
+                ->where('motivo', 'egreso')
+                ->orderBy('created_at', 'desc');
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('codigo_producto', 'like', "%{$search}%")
+                        ->orWhereHas('producto', function ($sub) use ($search) {
+                            $sub->where('descripcion', 'like', "%{$search}%");
+                        });
+                });
+            }
+
+            $movimientos = $query->take(50)->get(); // Aquí usamos el take correcto
+            Log::alert($movimientos);
+
+            return response()->json([
+                'message' => 'Salidas obtenidas con éxito',
+                'movimientos' => $movimientos,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'No se pudieron obtener las salidas',
+                'detalle' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 
 
@@ -236,12 +270,12 @@ class MovimientoController extends Controller
     {
         try {
             // Permitir filtrar por estado si se envía en la query string (por ejemplo: ?estado=pendiente)
-            $estado = $request->query('estado');
+            $motivo = $request->query('motivo');
 
             $query = Movimiento::query();
 
-            if ($estado) {
-                $query->where('estado', $estado);
+            if ($motivo) {
+                $query->where('motivo', $motivo);
             }
 
             // Obtener los movimientos con información del usuario y producto relacionado
