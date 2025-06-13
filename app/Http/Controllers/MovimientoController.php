@@ -274,11 +274,16 @@ class MovimientoController extends Controller
         try {
             // Permitir filtrar por estado si se envía en la query string (por ejemplo: ?estado=pendiente)
             $motivo = $request->query('motivo');
+            $estado = $request->query('estado');
+
 
             $query = Movimiento::query();
 
             if ($motivo) {
                 $query->where('motivo', $motivo);
+            }
+            if ($estado) {
+                $query->where('estado', $estado);
             }
 
             // Obtener los movimientos con información del usuario y producto relacionado
