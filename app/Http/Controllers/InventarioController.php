@@ -312,9 +312,9 @@ class InventarioController extends Controller
             }
 
             // Verificar si ya está aprobado
-            if ($producto->estado === 'aprobado') {
+            /* if ($producto->estado === 'aprobado') {
                 return response()->json(['message' => 'El producto ya está aprobado'], 400);
-            }
+            } */
 
             // Cambiar estado del producto a "aprobado"
             $producto->estado = 'aprobado';
