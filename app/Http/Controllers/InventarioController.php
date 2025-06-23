@@ -305,23 +305,23 @@ class InventarioController extends Controller
         DB::beginTransaction();
         try {
             // Buscar el producto
-            // $producto = Inventario::where('codigo', $codigo)->first();
+            $producto = Inventario::where('codigo', $codigo)->first();
 
-            // if (!$producto) {
-            //     return response()->json(['message' => 'Producto no encontrado'], 404);
-            // }
+            if (!$producto) {
+                return response()->json(['message' => 'Producto no encontrado'], 404);
+            }
 
             // Verificar si ya está aprobado
-            /* if ($producto->estado === 'aprobado') {
-                return response()->json(['message' => 'El producto ya está aprobado'], 400);
-            } */
+            // if ($producto->estado === 'aprobado') {
+            //     return response()->json(['message' => 'El producto ya está aprobado'], 400);
+            // }
 
             // Cambiar estado del producto a "aprobado"
-            // $producto->estado = 'aprobado';
-            // $producto->save();
+            $producto->estado = 'aprobado';
+            $producto->save();
 
             // Actualizar todos los movimientos de ese producto a "aprobado"
-            Movimiento::where('id', $codigo)
+            Movimiento::where('codigo_producto', $codigo)
                 ->where('estado', 'pendiente')
                 ->update(['estado' => 'aprobado']);
 
