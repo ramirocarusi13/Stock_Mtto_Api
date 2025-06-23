@@ -15,61 +15,57 @@ class MovimientoController extends Controller
     {
         $request->validate([
             'codigo_producto' => 'required|string',
-            'cantidad' => 'required|numeric',
-            'motivo' => 'required|string|in:ingreso,egreso,prestamo,devolución',
-            'estado' => 'required|string|in:pendiente,aprobado,rechazado',
+            'cantidad' => 'required|numeric|min:1',
+            'motivo' => 'required|string|in:ingreso,egreso,prestamo,devolucion',
             'receptor_prestamo' => 'nullable|string',
             'observacion_salida' => 'nullable|string',
         ]);
 
-
         DB::beginTransaction();
         try {
-            // Buscar el producto por código
-            $producto = Inventario::where('codigo', $request->codigo_producto)->firstOrFail();
+            // Buscar producto o crear si no existe (en estado pendiente)
+            $producto = Inventario::firstOrCreate(
+                ['codigo' => $request->codigo_producto],
+                [
+                    'descripcion' => $request->descripcion ?? 'Producto Nuevo',
+                    'estado' => 'pendiente'
+                ]
+            );
 
-            // Manejo de stock basado en el tipo de movimiento
-            if ($request->motivo === 'ingreso' || $request->motivo === 'devolucion') {
-                $producto->en_stock += $request->cantidad;
-                $producto->entradas += $request->cantidad;
-            } elseif ($request->motivo === 'egreso' || $request->motivo === 'prestamo') {
-                if ($producto->en_stock < $request->cantidad) {
+            // Verificar stock solo para egreso o préstamo aprobado inmediatamente
+            if (in_array($request->motivo, ['egreso', 'prestamo']) && $request->estado === 'aprobado') {
+                $stockReal = $producto->movimientos()->where('estado', 'aprobado')->sum('cantidad');
+                if ($stockReal < $request->cantidad) {
                     return response()->json(['error' => 'Stock insuficiente'], 400);
                 }
-                $producto->en_stock -= $request->cantidad;
-                $producto->salidas += $request->cantidad;
             }
 
-            // Guardar cambios en el producto
-            $producto->save();
-
-            // Crear el movimiento
+            // Crear movimiento pendiente siempre (o con el estado dado por usuario si es necesario)
             $movimiento = Movimiento::create([
-                'codigo_producto' => $request->codigo_producto,
+                'codigo_producto' => $producto->codigo,
                 'usuario_id' => Auth::id(),
                 'cantidad' => $request->cantidad,
                 'motivo' => $request->motivo,
-                'estado' => $request->estado,
+                'estado' => 'pendiente', // siempre pendiente inicialmente
                 'receptor_prestamo' => $request->receptor_prestamo,
                 'observacion_salida' => $request->observacion_salida,
             ]);
 
-            // Actualizar en_stock sumando solo los movimientos aprobados
-            $producto->en_stock = $producto->movimientos()->where('estado', 'aprobado')->sum('cantidad');
-            $producto->save();
-
             DB::commit();
 
             return response()->json([
-                'message' => 'Movimiento registrado correctamente',
+                'message' => 'Movimiento creado exitosamente como pendiente',
                 'movimiento' => $movimiento,
-                'nuevo_stock' => $producto->en_stock,
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'No se pudo registrar el movimiento', 'detalle' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => 'Error al registrar el movimiento',
+                'detalle' => $e->getMessage()
+            ], 500);
         }
     }
+
     public function devolverPrestamo(Request $request, $id)
     {
         $movimiento = Movimiento::findOrFail($id);
