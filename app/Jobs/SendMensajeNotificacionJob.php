@@ -29,8 +29,8 @@ class SendMensajeNotificacionJob implements ShouldQueue
 
     public function handle()
     {
-        if ($this->usuario->email) {
+       /*  if ($this->usuario->email) {
             Mail::to($this->usuario->email)->send(new MensajeNotificacion($this->mensaje, $this->ordenTrabajo, $this->usuarioLogueado));
-        }
+        } */
     }
 }
