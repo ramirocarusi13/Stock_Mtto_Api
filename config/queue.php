@@ -35,11 +35,11 @@ return [
         ],
 
         'database' => [
-/*             'driver' => 'database',
+            'driver' => 'database',
             'table' => 'jobs',
             'queue' => 'default',
             'retry_after' => 90,
-            'after_commit' => false, */
+            'after_commit' => false,
         ],
 
         'beanstalkd' => [
