@@ -24,13 +24,14 @@ class MovimientoController extends Controller
         DB::beginTransaction();
         try {
             // Buscar producto o crear si no existe (en estado pendiente)
-            $producto = Inventario::firstOrCreate(
-                ['codigo' => $request->codigo_producto],
-                [
-                    'descripcion' => $request->descripcion ?? 'Producto Nuevo',
-                    'estado' => 'pendiente'
-                ]
-            );
+            $producto = Inventario::where('codigo', $request->codigo_producto)->first();
+
+            if (!$producto) {
+                return response()->json([
+                    'error' => 'Producto no encontrado en inventario, no se puede crear el movimiento.'
+                ], 404);
+            }
+
 
             // Verificar stock solo para egreso o préstamo aprobado inmediatamente
             if (in_array($request->motivo, ['egreso', 'prestamo']) && $request->estado === 'aprobado') {
@@ -138,6 +139,59 @@ class MovimientoController extends Controller
             ], 500);
         }
     }
+    public function aprobarMovimientoPorId($id)
+    {
+        Log::info("Entrando a aprobarMovimientoPorId con ID: $id");
+        DB::beginTransaction();
+        try {
+            $movimiento = Movimiento::findOrFail($id);
+
+
+            if ($movimiento->estado !== 'pendiente') {
+                return response()->json(['message' => 'Este movimiento ya fue procesado'], 400);
+            }
+
+            $movimiento->estado = 'aprobado';
+            $movimiento->user_aprobacion_id = Auth::id();
+            $movimiento->fecha_movimiento = now();
+            $movimiento->save();
+
+            // Actualizar stock del producto
+            $producto = Inventario::where('codigo', $movimiento->codigo_producto)->firstOrFail();
+            $producto->en_stock = $producto->getStockRealAttribute(); // usa la suma de movimientos aprobados
+            $producto->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Movimiento aprobado correctamente',
+                'nuevo_stock' => $producto->en_stock,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Error al aprobar el movimiento', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+    public function rechazarMovimientoPorId($id)
+    {
+        try {
+            $movimiento = Movimiento::findOrFail($id);
+
+            if ($movimiento->estado !== 'pendiente') {
+                return response()->json(['message' => 'Este movimiento ya fue procesado'], 400);
+            }
+
+            $movimiento->estado = 'rechazado';
+            $movimiento->user_aprobacion_id = Auth::id();
+            $movimiento->save();
+
+            return response()->json(['message' => 'Movimiento rechazado con éxito']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Error al rechazar el movimiento', 'detalle' => $e->getMessage()], 500);
+        }
+    }
+
+
 
 
 
