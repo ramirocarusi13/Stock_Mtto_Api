@@ -24,7 +24,8 @@ class InventarioController extends Controller
         try {
             $search = $request->input('search');
 
-            $query = Inventario::with(['stock', 'proveedor', 'categoria']);
+            $query = Inventario::with(['stock', 'proveedor', 'categoria'])
+                ->where('estado', 'aprobado'); // ✅ Solo productos aprobados
 
             if ($search) {
                 $query->where(function ($q) use ($search) {
@@ -43,6 +44,7 @@ class InventarioController extends Controller
             return response()->json(['message' => 'Error al obtener los productos: ' . $e->getMessage()], 500);
         }
     }
+
     public function productosPuntoDePedido()
     {
         try {
