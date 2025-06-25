@@ -140,7 +140,7 @@ class InventarioController extends Controller
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Error al obtener el producto',
+                
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -538,7 +538,7 @@ class InventarioController extends Controller
             return response()->json(['data' => $productos], 200);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Error al obtener productos básicos',
+                
                 'error' => $e->getMessage()
             ], 500);
         }
