@@ -41,6 +41,8 @@ class SalidaController extends Controller
 
         // Restar del stock
         $producto->decrement('en_stock', $request->cantidad);
+        $producto->refresh();
+        $producto->actualizarFechaPuntoPedido();
 
         return response()->json(['message' => 'Salida registrada con éxito', 'salida' => $salida], 200);
     }

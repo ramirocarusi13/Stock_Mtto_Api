@@ -94,6 +94,8 @@ class MovimientoController extends Controller
             // Restaurar stock en inventario
             $producto->en_stock += $cantidad_devuelta;
             $producto->save();
+            $producto->refresh();
+            $producto->actualizarFechaPuntoPedido();
 
             // Crear un nuevo movimiento de ingreso con los nombres de columnas correctos
             $nuevoMovimiento = Movimiento::create([
@@ -168,6 +170,8 @@ class MovimientoController extends Controller
             // Actualizar el stock real usando el accessor definido
             $producto->en_stock = $producto->getStockRealAttribute();
             $producto->save();
+            $producto->refresh();
+            $producto->actualizarFechaPuntoPedido();
 
             DB::commit();
 
@@ -262,6 +266,8 @@ class MovimientoController extends Controller
             // Usar el método existente en `Inventario.php` para actualizar el stock
             $producto->en_stock = $producto->getStockRealAttribute();
             $producto->save();
+            $producto->refresh();
+            $producto->actualizarFechaPuntoPedido();
 
             DB::commit();
 
