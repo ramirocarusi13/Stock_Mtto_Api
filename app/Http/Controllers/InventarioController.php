@@ -184,6 +184,8 @@ class InventarioController extends Controller
 
         // Reducir el stock del inventario
         $producto->decrement('en_stock', $request->cantidad_prestada);
+        $producto->refresh();
+        $producto->actualizarFechaPuntoPedido();
 
         return response()->json(['message' => 'Producto prestado con éxito', 'prestamo' => $prestamo], 200);
     }
@@ -213,6 +215,8 @@ class InventarioController extends Controller
         $inventario = Inventario::find($prestamo->inventario_id);
         if ($inventario) {
             $inventario->increment('en_stock', $prestamo->cantidad_prestada);
+            $inventario->refresh();
+            $inventario->actualizarFechaPuntoPedido();
         }
 
         return response()->json(['message' => 'Producto devuelto con éxito', 'prestamo' => $prestamo], 200);
@@ -432,6 +436,8 @@ class InventarioController extends Controller
 
             ]);
 
+            $producto->actualizarFechaPuntoPedido();
+
             // Registrar el movimiento con estado "pendiente"
             if ($request->en_stock > 0) {
                 Movimiento::create([
@@ -517,6 +523,8 @@ class InventarioController extends Controller
             }
 
             $producto->update($validatedData);
+            $producto->refresh();
+            $producto->actualizarFechaPuntoPedido();
 
             return response()->json([
                 'message' => 'Producto actualizado con éxito',

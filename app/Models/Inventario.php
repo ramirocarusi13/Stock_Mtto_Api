@@ -37,6 +37,7 @@ class Inventario extends Model
         'fecha_prestado',
         'receptor_prestamo',
         'cantidad_prestada',
+        'fecha_punto_pedido',
     ];
 
     protected $casts = [
@@ -140,5 +141,21 @@ class Inventario extends Model
     public function scopePrestados($query)
     {
         return $query->where('prestado', true);
+    }
+
+    /**
+     * Actualiza la fecha en la que el producto llegó al punto de pedido.
+     */
+    public function actualizarFechaPuntoPedido(): void
+    {
+        $punto = (int) ($this->punto_de_pedido ?? 0);
+
+        if ($punto > 0 && $this->en_stock <= $punto) {
+            $this->fecha_punto_pedido = now();
+        } else {
+            $this->fecha_punto_pedido = null;
+        }
+
+        $this->save();
     }
 }

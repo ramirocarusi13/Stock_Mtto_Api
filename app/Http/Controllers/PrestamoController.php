@@ -31,6 +31,8 @@ class PrestamoController extends Controller
         ]);
 
         $producto->decrement('en_stock', $request->cantidad_prestada);
+        $producto->refresh();
+        $producto->actualizarFechaPuntoPedido();
         return response()->json(['message' => 'Producto prestado', 'data' => $prestamo]);
     }
 
@@ -40,6 +42,8 @@ class PrestamoController extends Controller
         $producto = Inventario::findOrFail($prestamo->inventario_id);
         
         $producto->increment('en_stock', $prestamo->cantidad_prestada);
+        $producto->refresh();
+        $producto->actualizarFechaPuntoPedido();
         $prestamo->update(['devuelto' => true]);
         
         return response()->json(['message' => 'Producto devuelto']);
